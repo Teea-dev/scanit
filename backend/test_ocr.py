@@ -172,213 +172,311 @@
 #     image_path = r"C:\Users\Admin\OneDrive\Pictures\test_timetable.png"
 #     extract_table_from_image(image_path)
 
+# import cv2
+# import pytesseract
+# import numpy as np
+# from PIL import Image
+# import matplotlib.pyplot as plt
+# import os
+# import time
+
+# # Set Tesseract path - adjust if needed
+# pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+
+# def enhance_image_for_table_ocr(image_path):
+#     """
+#     Enhanced preprocessing specifically for table structures.
+#     """
+#     # Read the image
+#     img = cv2.imread(image_path)
+#     if img is None:
+#         print(f"Error: Could not read image at {image_path}")
+#         return None
+        
+#     # Convert to grayscale
+#     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    
+#     # Apply adaptive thresholding
+#     thresh = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, 
+#                                   cv2.THRESH_BINARY, 11, 2)
+    
+#     # Denoise
+#     denoised = cv2.fastNlMeansDenoising(thresh, None, 10, 7, 21)
+    
+#     # Dilation - helps connect components and make text clearer
+#     kernel = np.ones((1, 1), np.uint8)
+#     dilated = cv2.dilate(denoised, kernel, iterations=1)
+    
+#     return dilated
+
+# def detect_table_grid(image):
+#     """
+#     Detect table grid lines and draw them on the image.
+#     Returns image with detected lines.
+#     """
+#     gray = image.copy()
+    
+#     # Apply edge detection
+#     edges = cv2.Canny(gray, 50, 150, apertureSize=3)
+    
+#     # Apply Hough Line Transform
+#     lines = cv2.HoughLinesP(edges, 1, np.pi/180, 100, minLineLength=100, maxLineGap=10)
+    
+#     # Create color image to draw lines on
+#     lined_image = cv2.cvtColor(gray, cv2.COLOR_GRAY2BGR)
+    
+#     if lines is not None:
+#         for line in lines:
+#             x1, y1, x2, y2 = line[0]
+#             cv2.line(lined_image, (x1, y1), (x2, y2), (0, 255, 0), 2)
+    
+#     return lined_image
+
+# def extract_table_text(image_path, debug=True, timeout=60):
+#     """
+#     Main function to extract text from tables with timeout protection
+#     """
+#     start_time = time.time()
+    
+#     try:
+#         # Read the image
+#         original_img = cv2.imread(image_path)
+#         if original_img is None:
+#             print(f"Error: Could not read image at {image_path}")
+#             return None
+        
+#         # Enhanced preprocessing for tables
+#         processed_img = enhance_image_for_table_ocr(image_path)
+#         if processed_img is None:
+#             return None
+            
+#         # Detect and visualize table structure
+#         table_structure_img = detect_table_grid(processed_img)
+        
+#         # Convert processed image to PIL Image for OCR
+#         pil_img = Image.fromarray(processed_img)
+        
+#         # Save intermediate results first - before visualization
+#         output_dir = "ocr_results"
+#         os.makedirs(output_dir, exist_ok=True)
+#         cv2.imwrite(os.path.join(output_dir, "preprocessed_table.jpg"), processed_img)
+#         cv2.imwrite(os.path.join(output_dir, "table_structure.jpg"), table_structure_img)
+        
+#         # Run OCR BEFORE showing debug images
+#         print("Processing with OCR - this may take a few seconds...")
+        
+#         # Try different OCR configurations specifically for tables
+#         results = {}
+        
+#         # Standard configuration with timeout check
+#         if time.time() - start_time < timeout:
+#             print("\n=== STANDARD CONFIGURATION ===")
+#             text_standard = pytesseract.image_to_string(pil_img)
+#             print(text_standard)
+#             results["standard"] = text_standard
+        
+#         # Table configuration with timeout check
+#         if time.time() - start_time < timeout:
+#             print("\n=== TABLE CONFIGURATION ===")
+#             # PSM 6: Assume a single uniform block of text
+#             custom_config = r'--oem 3 --psm 6'
+#             text_custom = pytesseract.image_to_string(pil_img, config=custom_config)
+#             print(text_custom)
+#             results["table"] = text_custom
+        
+#         # Table structure detection with timeout check
+#         if time.time() - start_time < timeout:
+#             print("\n=== TABLE STRUCTURED OUTPUT ===")
+#             try:
+#                 # Extract structured data from the table
+#                 # Limit to confidence above 30% to reduce noise
+#                 table_data = pytesseract.image_to_data(pil_img, output_type=pytesseract.Output.DICT)
+#                 print(f"Detected {len(table_data['text'])} text elements")
+                
+#                 # Filter out empty strings and low confidence results
+#                 filtered_data = []
+#                 for i in range(len(table_data['text'])):
+#                     if table_data['text'][i].strip() != '' and float(table_data['conf'][i]) > 30:
+#                         item = {
+#                             'text': table_data['text'][i],
+#                             'conf': table_data['conf'][i],
+#                             'left': table_data['left'][i],
+#                             'top': table_data['top'][i],
+#                             'width': table_data['width'][i],
+#                             'height': table_data['height'][i]
+#                         }
+#                         filtered_data.append(item)
+#                         print(f"Text: {item['text']}, Conf: {item['conf']}, Position: ({item['left']}, {item['top']})")
+                
+#                 results["structured"] = filtered_data
+                
+#                 # Try to save structured data as CSV
+#                 with open(os.path.join(output_dir, "table_data.csv"), "w") as f:
+#                     f.write("text,confidence,left,top,width,height\n")
+#                     for item in filtered_data:
+#                         f.write(f"{item['text']},{item['conf']},{item['left']},{item['top']},{item['width']},{item['height']}\n")
+                
+#             except Exception as e:
+#                 print(f"Error in structured output: {e}")
+        
+#         # Try specialized table extraction with timeout check
+#         if time.time() - start_time < timeout:
+#             print("\n=== SPECIALIZED TABLE EXTRACTION ===")
+#             try:
+#                 # TSV output format specifically for tables
+#                 tsv_config = r'--oem 3 --psm 6 -c preserve_interword_spaces=1 outputbase tsv'
+#                 tsv_output = pytesseract.image_to_string(pil_img, config=tsv_config)
+                
+#                 # Save TSV output
+#                 with open(os.path.join(output_dir, "table_output.tsv"), "w") as f:
+#                     f.write(tsv_output)
+                    
+#                 print("TSV output saved to table_output.tsv")
+#                 results["tsv"] = tsv_output
+                
+#             except Exception as e:
+#                 print(f"Error in TSV extraction: {e}")
+        
+#         print(f"\nProcessing completed in {time.time() - start_time:.2f} seconds")
+#         print(f"Results saved to '{output_dir}' directory")
+        
+#         return results
+        
+#     except Exception as e:
+#         elapsed_time = time.time() - start_time
+#         print(f"Error occurred after {elapsed_time:.2f} seconds: {e}")
+#         return None
+
+# if __name__ == "__main__":
+#     # Use a raw string for the file path
+#     image_path = r"C:\Users\Admin\OneDrive\Pictures\test_timetable.png"
+    
+#     print("Starting table text extraction...")
+#     try:
+#         # First run OCR with no visualization to ensure it completes
+#         print("Step 1: Extracting text without visualization...")
+#         results = extract_table_text(image_path, debug=False)
+        
+#         if results:
+#             print("\nSUMMARY OF EXTRACTED TEXT:")
+#             print("-------------------------")
+#             if "table" in results:
+#                 print(results["table"])
+                
+#                 # Save the extracted text to a file
+#                 output_dir = "ocr_results"
+#                 with open(os.path.join(output_dir, "extracted_text.txt"), "w") as f:
+#                     f.write(results["table"])
+#                 print(f"Extracted text saved to {os.path.join(output_dir, 'extracted_text.txt')}")
+            
+#             # Now show the visualization after OCR is complete
+#             print("\nStep 2: Showing visualization of processed images...")
+#             # Read the image
+#             original_img = cv2.imread(image_path)
+#             processed_img = enhance_image_for_table_ocr(image_path)
+#             table_structure_img = detect_table_grid(processed_img)
+            
+#             plt.figure(figsize=(15, 10))
+#             plt.subplot(1, 3, 1)
+#             plt.title("Original Image")
+#             plt.imshow(cv2.cvtColor(original_img, cv2.COLOR_BGR2RGB))
+#             plt.axis('off')
+            
+#             plt.subplot(1, 3, 2)
+#             plt.title("Processed Image")
+#             plt.imshow(processed_img, cmap='gray')
+#             plt.axis('off')
+            
+#             plt.subplot(1, 3, 3)
+#             plt.title("Detected Table Structure")
+#             plt.imshow(cv2.cvtColor(table_structure_img, cv2.COLOR_BGR2RGB))
+#             plt.axis('off')
+            
+#             plt.tight_layout()
+#             plt.show()
+#         else:
+#             print("Failed to extract text from the table.")
+#     except Exception as e:
+#         print(f"An error occurred: {e}")
+
+
+
 import cv2
 import pytesseract
 import numpy as np
 from PIL import Image
-import matplotlib.pyplot as plt
 import os
 import time
 
 # Set Tesseract path - adjust if needed
 pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
-def enhance_image_for_table_ocr(image_path):
+def extract_table_text(image_path):
     """
-    Enhanced preprocessing specifically for table structures.
+    Simplified function to extract text from tables
     """
-    # Read the image
-    img = cv2.imread(image_path)
-    if img is None:
-        print(f"Error: Could not read image at {image_path}")
-        return None
-        
-    # Convert to grayscale
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    
-    # Apply adaptive thresholding
-    thresh = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, 
-                                  cv2.THRESH_BINARY, 11, 2)
-    
-    # Denoise
-    denoised = cv2.fastNlMeansDenoising(thresh, None, 10, 7, 21)
-    
-    # Dilation - helps connect components and make text clearer
-    kernel = np.ones((1, 1), np.uint8)
-    dilated = cv2.dilate(denoised, kernel, iterations=1)
-    
-    return dilated
-
-def detect_table_grid(image):
-    """
-    Detect table grid lines and draw them on the image.
-    Returns image with detected lines.
-    """
-    gray = image.copy()
-    
-    # Apply edge detection
-    edges = cv2.Canny(gray, 50, 150, apertureSize=3)
-    
-    # Apply Hough Line Transform
-    lines = cv2.HoughLinesP(edges, 1, np.pi/180, 100, minLineLength=100, maxLineGap=10)
-    
-    # Create color image to draw lines on
-    lined_image = cv2.cvtColor(gray, cv2.COLOR_GRAY2BGR)
-    
-    if lines is not None:
-        for line in lines:
-            x1, y1, x2, y2 = line[0]
-            cv2.line(lined_image, (x1, y1), (x2, y2), (0, 255, 0), 2)
-    
-    return lined_image
-
-def extract_table_text(image_path, debug=True, timeout=60):
-    """
-    Main function to extract text from tables with timeout protection
-    """
-    start_time = time.time()
-    
     try:
+        print(f"Reading image from: {image_path}")
         # Read the image
-        original_img = cv2.imread(image_path)
-        if original_img is None:
+        img = cv2.imread(image_path)
+        if img is None:
             print(f"Error: Could not read image at {image_path}")
             return None
+            
+        # Convert to grayscale
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         
-        # Enhanced preprocessing for tables
-        processed_img = enhance_image_for_table_ocr(image_path)
-        if processed_img is None:
-            return None
-            
-        # Detect and visualize table structure
-        table_structure_img = detect_table_grid(processed_img)
+        # Apply thresholding to make text clearer
+        _, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
         
-        # Convert processed image to PIL Image for OCR
-        pil_img = Image.fromarray(processed_img)
-        
-        # Show debug images if requested
-        if debug:
-            plt.figure(figsize=(15, 10))
-            
-            plt.subplot(1, 3, 1)
-            plt.title("Original Image")
-            plt.imshow(cv2.cvtColor(original_img, cv2.COLOR_BGR2RGB))
-            plt.axis('off')
-            
-            plt.subplot(1, 3, 2)
-            plt.title("Processed Image")
-            plt.imshow(processed_img, cmap='gray')
-            plt.axis('off')
-            
-            plt.subplot(1, 3, 3)
-            plt.title("Detected Table Structure")
-            plt.imshow(cv2.cvtColor(table_structure_img, cv2.COLOR_BGR2RGB))
-            plt.axis('off')
-            
-            plt.tight_layout()
-            plt.show()
-        
-        # Save intermediate results
+        # Save preprocessed image
         output_dir = "ocr_results"
         os.makedirs(output_dir, exist_ok=True)
-        cv2.imwrite(os.path.join(output_dir, "preprocessed_table.jpg"), processed_img)
-        cv2.imwrite(os.path.join(output_dir, "table_structure.jpg"), table_structure_img)
+        cv2.imwrite(os.path.join(output_dir, "preprocessed.jpg"), thresh)
+        print(f"Saved preprocessed image to {os.path.join(output_dir, 'preprocessed.jpg')}")
         
-        print("Processing with OCR - this may take a few seconds...")
+        # Convert to PIL Image
+        pil_img = Image.fromarray(thresh)
         
-        # Try different OCR configurations specifically for tables
-        results = {}
+        print("Running OCR with table configuration...")
+        start_time = time.time()
         
-        # Standard configuration with timeout check
-        if time.time() - start_time < timeout:
-            print("\n=== STANDARD CONFIGURATION ===")
-            text_standard = pytesseract.image_to_string(pil_img)
-            print(text_standard)
-            results["standard"] = text_standard
+        # Use TSV output format which works well for tables
+        tsv_config = r'--oem 3 --psm 6 -c preserve_interword_spaces=1 outputbase tsv'
+        extracted_text = pytesseract.image_to_string(pil_img, config=tsv_config)
         
-        # Table configuration with timeout check
-        if time.time() - start_time < timeout:
-            print("\n=== TABLE CONFIGURATION ===")
-            # PSM 6: Assume a single uniform block of text
-            custom_config = r'--oem 3 --psm 6'
-            text_custom = pytesseract.image_to_string(pil_img, config=custom_config)
-            print(text_custom)
-            results["table"] = text_custom
+        # Also try standard configuration
+        standard_config = r'--oem 3 --psm 6'
+        standard_text = pytesseract.image_to_string(pil_img, config=standard_config)
         
-        # Table structure detection with timeout check
-        if time.time() - start_time < timeout:
-            print("\n=== TABLE STRUCTURED OUTPUT ===")
-            try:
-                # Extract structured data from the table
-                # Limit to confidence above 30% to reduce noise
-                table_data = pytesseract.image_to_data(pil_img, output_type=pytesseract.Output.DICT)
-                print(f"Detected {len(table_data['text'])} text elements")
-                
-                # Filter out empty strings and low confidence results
-                filtered_data = []
-                for i in range(len(table_data['text'])):
-                    if table_data['text'][i].strip() != '' and float(table_data['conf'][i]) > 30:
-                        item = {
-                            'text': table_data['text'][i],
-                            'conf': table_data['conf'][i],
-                            'left': table_data['left'][i],
-                            'top': table_data['top'][i],
-                            'width': table_data['width'][i],
-                            'height': table_data['height'][i]
-                        }
-                        filtered_data.append(item)
-                        print(f"Text: {item['text']}, Conf: {item['conf']}, Position: ({item['left']}, {item['top']})")
-                
-                results["structured"] = filtered_data
-                
-                # Try to save structured data as CSV
-                with open(os.path.join(output_dir, "table_data.csv"), "w") as f:
-                    f.write("text,confidence,left,top,width,height\n")
-                    for item in filtered_data:
-                        f.write(f"{item['text']},{item['conf']},{item['left']},{item['top']},{item['width']},{item['height']}\n")
-                
-            except Exception as e:
-                print(f"Error in structured output: {e}")
+        print(f"OCR completed in {time.time() - start_time:.2f} seconds")
         
-        # Try specialized table extraction with timeout check
-        if time.time() - start_time < timeout:
-            print("\n=== SPECIALIZED TABLE EXTRACTION ===")
-            try:
-                # TSV output format specifically for tables
-                tsv_config = r'--oem 3 --psm 6 -c preserve_interword_spaces=1 outputbase tsv'
-                tsv_output = pytesseract.image_to_string(pil_img, config=tsv_config)
-                
-                # Save TSV output
-                with open(os.path.join(output_dir, "table_output.tsv"), "w") as f:
-                    f.write(tsv_output)
-                    
-                print("TSV output saved to table_output.tsv")
-                results["tsv"] = tsv_output
-                
-            except Exception as e:
-                print(f"Error in TSV extraction: {e}")
+        # Save extracted text
+        with open(os.path.join(output_dir, "extracted_tsv.txt"), "w") as f:
+            f.write(extracted_text)
+            
+        with open(os.path.join(output_dir, "extracted_standard.txt"), "w") as f:
+            f.write(standard_text)
+            
+        print(f"Text saved to {os.path.join(output_dir, 'extracted_standard.txt')}")
         
-        print(f"\nProcessing completed in {time.time() - start_time:.2f} seconds")
-        print(f"Results saved to '{output_dir}' directory")
-        
-        return results
+        return standard_text
         
     except Exception as e:
-        elapsed_time = time.time() - start_time
-        print(f"Error occurred after {elapsed_time:.2f} seconds: {e}")
+        print(f"Error occurred: {e}")
         return None
 
 if __name__ == "__main__":
     # Use a raw string for the file path
     image_path = r"C:\Users\Admin\OneDrive\Pictures\test_timetable.png"
     
-    print("Starting table text extraction...")
-    results = extract_table_text(image_path, debug=True)
+    print("Starting simplified table text extraction...")
+    print("This script focuses on OCR without visual display to prevent hanging")
     
-    if results:
-        print("\nSUMMARY OF EXTRACTED TEXT:")
-        print("-------------------------")
-        if "table" in results:
-            print(results["table"])
+    extracted_text = extract_table_text(image_path)
+    
+    if extracted_text:
+        print("\n=== EXTRACTED TEXT ===")
+        print(extracted_text)
     else:
         print("Failed to extract text from the table.")
