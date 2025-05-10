@@ -5,11 +5,18 @@ import { useState } from "react";
 import Head from "next/head";
 import { Camera } from "lucide-react";
 
+interface CalendarEvent {
+  title: string;
+  start: string;
+  end: string;
+  location?: string;
+}
+
 export default function Home() {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [extractedEvents, setExtractedEvents] = useState<any[]>([]);
+  const [extractedEvents, setExtractedEvents] = useState<CalendarEvent[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -25,42 +32,47 @@ export default function Home() {
     }
   };
   const handleCapture = async () => {
-    // if (!imageFile) {
-    //   alert("Please select an image file first.");
-    //   return;
-    // }
-    document.getElementById("file-Input")?.click();
-    console.log('clicked')
-  };
-  const processImage = async () => {
     if (!imageFile) {
       alert("Please select an image file first.");
       return;
     }
+    document.getElementById("file-input")?.click();
+    console.log('clicked')
+  };
+  const processImage = async () => {
+    if (!imageFile) {
+      setError("Please select an image file first.");
+      return;
+    }
+    
     setIsProcessing(true);
     setError(null);
-    const formData = new FormData();
-    formData.append("image", imageFile);
-
+    
     try {
-      const response = await fetch("api/extract-events", {
+      const formData = new FormData();
+      formData.append("image", imageFile);
+      
+      const response = await fetch("/api/extract-events", {
         method: "POST",
         body: formData,
       });
+      
       if (!response.ok) {
-        throw new Error("Failed to process image");
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to process image");
       }
+      
       const data = await response.json();
       setExtractedEvents(data.events);
     } catch (error) {
       console.error("Error processing image:", error);
-      setError("Failed to process image. Please try again.");
+      setError(error instanceof Error ? error.message : "Failed to process image");
     } finally {
       setIsProcessing(false);
     }
   };
 
-  const addToCalendar = async (event: any) => {
+  const addToCalendar = async (event: unknown) => {
     if (extractedEvents.length === 0) return;
 
     try {
