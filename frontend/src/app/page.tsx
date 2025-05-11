@@ -32,11 +32,24 @@ export default function Home() {
     }
   };
   const handleCapture = async () => {
-    if (!imageFile) {
-      alert("Please select an image file first.");
-      return;
-    }
-    document.getElementById("file-input")?.click();
+     const input  = document.createElement("input");
+     input.type = "file";
+     input.accept = "image/*";
+     input.capture = 'environment';
+     input.onchange = (e)=>{
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if(file){
+        setImageFile(file);
+        const reader = new FileReader();
+        reader.onload = () => {
+          setImagePreview(reader.result as string);
+        };
+        reader.readAsDataURL(file);
+        
+      }
+     }
+     input.click();
+   
     console.log('clicked')
   };
   const processImage = async () => {
@@ -148,7 +161,7 @@ export default function Home() {
                   onClick={handleCapture}
                   className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
                 >
-                  {imagePreview ? 'Take New Photo' : 'Take Photo'}
+                  {imagePreview ? 'Take New Photo' : 'Take Photo/Upload Image'}
                 </button>
                 
                 {imagePreview && (
